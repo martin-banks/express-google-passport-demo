@@ -1,3 +1,8 @@
+This exmaple is copied from the Passport Facebook example repo, [find the original here:](https://github.com/passport/express-4.x-facebook-example)
+
+
+---
+
 This example demonstrates how to use [Express](http://expressjs.com/) 4.x and
 [Passport](http://passportjs.org/) to authenticate users using Facebook.  Use
 this example as a starting point for your own web applications.
