@@ -8,6 +8,8 @@ const functions = require('firebase-functions')
 const firebaseAdmin = require('firebase-admin')
 const firebase = require('firebase')
 
+const multer = require('multer')
+
 
 // Configure the Google strategy for use by Passport.
 //
@@ -17,8 +19,8 @@ const firebase = require('firebase')
 // with a user object, which will be set at `req.user` in route handlers after
 // authentication.
 passport.use(new Strategy({
-    clientID: process.env.LIENT_I,
-    clientSecret: process.env.LIENT_SECRE,
+    clientID: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
     callbackURL: '/return'
   },
   function(accessToken, refreshToken, profile, cb) {
@@ -61,8 +63,33 @@ app.set('view engine', 'ejs')
 // logging, parsing, and session handling.
 app.use(require('morgan')('combined'))
 app.use(require('cookie-parser')())
-app.use(require('body-parser').urlencoded({ extended: true }))
+app.use(require('body-parser').urlencoded({
+  extended: true,
+  limit: (20 * 1024 * 1024)
+}))
+
+const multerOptions = {
+  storage: multer.memoryStorage(),
+  fileFilter(req, file, next) {
+    const isPhoto = file.mimetype.startsWith('image/')
+    if(isPhoto) {
+      next(null, true)
+    } else {
+      next({ message: 'That filetype isn\'t allowed!' }, false)
+    }
+  },
+  limits: {
+    fileSize: 50 * 1024 * 1024,
+    fieldSize: 50 * 1024 * 1024,
+  }
+}
+
+const upload = multer(multerOptions)
+
+
+
 app.use(require('express-session')({ secret: 'keyboard cat', resave: true, saveUninitialized: true }))
+
 
 // Initialize Passport and restore authentication state, if any, from the
 // session.
@@ -135,7 +162,8 @@ async function checkAuthorisedUser (req, res, next) {
     if (userInfo) {
       // User already exists
       console.log({ userInfo })
-      return res.json({ userInfo })
+      return next()
+      // return res.json({ userInfo })
 
     } else if (newUsers) {
       console.log({ newUsers })
@@ -198,13 +226,31 @@ app.get('/auth',
   }
 )
 
+app.get('/upload',
+  // require('connect-ensure-login').ensureLoggedIn(),
+  // checkAuthorisedUser,
+  function (req, res, next) {
+    res.render('upload')
+  }
+  )
+  
+app.post('/upload',
+  upload.array('png'),
+  // require('connect-ensure-login').ensureLoggedIn(),
+  // checkAuthorisedUser,
+  function (req, res, next) {
+    res.json({ body: req.body, files: req.files || 'nope' })
+    // res.render('upload')
+  }
+)
+
 
 // Start the server
-app.listen(process.env.PORT'] || 500)
+app.listen(process.env.PORT || 500)
 console.log(`
 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
 
-Server running: http://localhost:${process.env.OR}
+Server running: http://localhost:${process.env.PORT}
 
 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
 
