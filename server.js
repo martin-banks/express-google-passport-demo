@@ -1,15 +1,12 @@
 require('dotenv').config()
 
-var express = require('express')
-var passport = require('passport')
-var Strategy = require('passport-google-oauth20').Strategy
-
-const functions = require('firebase-functions')
-const firebaseAdmin = require('firebase-admin')
+const express = require('express')
+const passport = require('passport')
+const Strategy = require('passport-google-oauth20').Strategy
+// const functions = require('firebase-functions')
+// const firebaseAdmin = require('firebase-admin')
 const firebase = require('firebase')
-
 const multer = require('multer')
-
 const path = require('path')
 const fs = require('fs')
 
@@ -95,8 +92,7 @@ const upload = multer(multerOptions)
 app.use(require('express-session')({ secret: 'keyboard cat', resave: true, saveUninitialized: true }))
 
 
-// Initialize Passport and restore authentication state, if any, from the
-// session.
+// Initialize Passport and restore authentication state, if any, from the session.
 app.use(passport.initialize())
 app.use(passport.session())
 
@@ -126,7 +122,6 @@ app.get('/return',
 
 // TODO
  // Set the configuration for your app
-  // TODO: Replace with your project's config object
 const config = {
   apiKey: process.env.FIREBASE_API_KEY,
   authDomain: process.env.FIREBASE_AUTH_DOMAIN,
@@ -157,7 +152,14 @@ function getUserInfo ({ id }) {
 async function checkAuthorisedUser (req, res, next) {
   console.log('\n\n\req.user:\n', req.user, '\n\n')
   const email = req.user.emails[0].value
-  // TODO
+
+  // Now we have an aunthenticated user, we determine if they are authorised to access site
+  // Two scenarios: Existing user and new user.
+  // Existing users have a profile stored in a 'user' DB
+  // This entry will also include a user level (admin, standard etc)
+  // New users are listed in the a new_user DB entry with their access level
+  // Once new user logs in a new account is created and the new user listing is removed
+
   // Query database for user list
   try {
     const newUsers = await getNewUsers()
@@ -167,7 +169,6 @@ async function checkAuthorisedUser (req, res, next) {
       // User already exists
       console.log({ userInfo })
       return next()
-      // return res.json({ userInfo })
 
     } else if (newUsers) {
       console.log({ newUsers })
@@ -219,7 +220,7 @@ async function checkAuthorisedUser (req, res, next) {
 app.get('/profile',
   require('connect-ensure-login').ensureLoggedIn(),
   checkAuthorisedUser,
-  function(req, res){
+  function (req, res){
     res.render('profile', { user: req.user })
   })
 
@@ -238,7 +239,7 @@ app.get('/upload',
   }
 )
 
-function saveUploads (file) {
+function saveUploadedFile (file) {
   const uploadDir = path.join(__dirname, `./uploads`)
   // Check if the upload folder exists
   fs.access(uploadDir, async function(err) {
@@ -246,6 +247,8 @@ function saveUploads (file) {
       // Create dir in case not found
       await fs.mkdirSync(uploadDir)
     }
+
+    // Create new, unique file name
     const time = new Date().getTime()
     const cleanedName = file.originalname
       .trim()
@@ -254,11 +257,11 @@ function saveUploads (file) {
 
     const newName = `${time}-${cleanedName}`
     const uploadedFile = `${uploadDir}/${newName}`
-  
+
     return new Promise((resolve, reject) => {
       fs.writeFile(uploadedFile, file.buffer, function (err, res) {
         if (err) {
-          reject('\n--------\n', `--ERROR WRITING FILE ${newName}--\n`, err, '\n--------\n')
+          reject('\n--------\n', `-- ERROR WRITING FILE ${newName} --\n`, err, '\n--------\n')
           return
         }
         console.log('File written:', newName)
@@ -270,12 +273,13 @@ function saveUploads (file) {
 }
 
 app.post('/upload',
+  // The string in brackets is the name of the file input element
   upload.array('fileupload'),
   // require('connect-ensure-login').ensureLoggedIn(),
   // checkAuthorisedUser,
   async function (req, res, next) {
     try {
-      await saveUploads(req.files[0])
+      await saveUploadedFile(req.files[0])
     } catch (err) {
       res.send(err)
       return console.log(err)
