@@ -259,21 +259,43 @@ function saveToFirstore (req) {
     keyFilename: process.env.GCLOUD_APPLICATION_CREDENTIALS,
   })
   const bucket = storage.bucket(process.env.GCLOUD_STORAGE_BUCKET_URL)
-  const blob = bucket.file(`uploads/${file.originalname}`)
+
+  // Allows the image to be read from it's storage url
+  bucket.makePublic(err => {
+    throw err
+  })
+
+  const blob = bucket.file(`uploads/${new Date().getTime()}-${file.originalname}`)
   const blobStream = blob.createWriteStream({
     metadata: {
       contentType: file.mimetype,
     },
   })
 
+  // bucket.upload(
+  //   myFile,
+  //   { public: true, destination: destination },
+  //   function(err, file) {
+  //   if (err) {
+  //       console.log(err);
+  //   }
+  // })
+
   blobStream.on('error', err => {
     throw err
   })
   blobStream.on('finish', () => {
-    const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURI(blob.name)}?alt=media`
-    const altUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`
-    console.log('\n\n', publicUrl, '\n\n', altUrl, '\n\n')
+    // This is not publically accesible??
+    const firebaseUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURI(blob.name)}?alt=media`
 
+    // URL of file under google.
+    // Can be public when using the bucket.makePiublic() method
+    const storageUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`
+    console.log('\n\n', firebaseUrl, '\n\n', storageUrl, '\n\n')
+
+    // Signed URL creataes a public url valid only until theexpoers date
+    // Expores date can be set waaaaaaaayyyy into the future
+    // But generates very long url
     blob.getSignedUrl({
       action: 'read',
       expires: '03-09-2491'
