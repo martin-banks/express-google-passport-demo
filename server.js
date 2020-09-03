@@ -239,24 +239,33 @@ app.get('/upload',
 )
 
 function saveUploads (file) {
-  const time = new Date().getTime()
-  const cleanedName = file.originalname
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/gi, '-')
+  const uploadDir = path.join(__dirname, `./uploads`)
+  // Check if the upload folder exists
+  fs.access(uploadDir, async function(err) {
+    if (err && err.code === 'ENOENT') {
+      // Create dir in case not found
+      await fs.mkdirSync(uploadDir)
+    }
+    const time = new Date().getTime()
+    const cleanedName = file.originalname
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/gi, '-')
 
-  const newName = `${time}-${cleanedName}`
-  const uploadedFile = path.join(__dirname, `./uploads/${newName}`)
-
-  return new Promise((resolve, reject) => {
-    fs.writeFile(uploadedFile, file.buffer, function (err, res) {
-      if (err) {
-        reject('\n--------\n', `--ERROR WRITING FILE ${newName}--\n`, err, '\n--------\n')
-        return
-      }
-      console.log('File written:', newName)
-      resolve(uploadedFile)
+    const newName = `${time}-${cleanedName}`
+    const uploadedFile = `${uploadDir}/${newName}`
+  
+    return new Promise((resolve, reject) => {
+      fs.writeFile(uploadedFile, file.buffer, function (err, res) {
+        if (err) {
+          reject('\n--------\n', `--ERROR WRITING FILE ${newName}--\n`, err, '\n--------\n')
+          return
+        }
+        console.log('File written:', newName)
+        resolve(uploadedFile)
+      })
     })
+
   })
 }
 
@@ -265,7 +274,12 @@ app.post('/upload',
   // require('connect-ensure-login').ensureLoggedIn(),
   // checkAuthorisedUser,
   async function (req, res, next) {
-    await saveUploads(req.files[0])
+    try {
+      await saveUploads(req.files[0])
+    } catch (err) {
+      res.send(err)
+      return console.log(err)
+    }
     res.json({ body: req.body, files: req.files || 'no file found' })
     // res.render('upload')
   }
