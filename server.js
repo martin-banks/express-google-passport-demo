@@ -10,6 +10,9 @@ const firebase = require('firebase')
 
 const multer = require('multer')
 
+const path = require('path')
+const fs = require('fs')
+
 
 // Configure the Google strategy for use by Passport.
 //
@@ -67,6 +70,7 @@ app.use(require('body-parser').urlencoded({
   extended: true,
   limit: (20 * 1024 * 1024)
 }))
+
 
 const multerOptions = {
   storage: multer.memoryStorage(),
@@ -232,14 +236,37 @@ app.get('/upload',
   function (req, res, next) {
     res.render('upload')
   }
-  )
-  
+)
+
+function saveUploads (file) {
+  const time = new Date().getTime()
+  const cleanedName = file.originalname
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/gi, '-')
+
+  const newName = `${time}-${cleanedName}`
+  const uploadedFile = path.join(__dirname, `./uploads/${newName}`)
+
+  return new Promise((resolve, reject) => {
+    fs.writeFile(uploadedFile, file.buffer, function (err, res) {
+      if (err) {
+        reject('\n--------\n', `--ERROR WRITING FILE ${newName}--\n`, err, '\n--------\n')
+        return
+      }
+      console.log('File written:', newName)
+      resolve(uploadedFile)
+    })
+  })
+}
+
 app.post('/upload',
-  upload.array('png'),
+  upload.array('fileupload'),
   // require('connect-ensure-login').ensureLoggedIn(),
   // checkAuthorisedUser,
-  function (req, res, next) {
-    res.json({ body: req.body, files: req.files || 'nope' })
+  async function (req, res, next) {
+    await saveUploads(req.files[0])
+    res.json({ body: req.body, files: req.files || 'no file found' })
     // res.render('upload')
   }
 )
