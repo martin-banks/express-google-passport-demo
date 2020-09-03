@@ -1,5 +1,6 @@
 .env
 uploads/**
+serviceAccountKey.json
 
 # Mac OS X
 .DS_Store
