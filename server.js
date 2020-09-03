@@ -4,7 +4,7 @@ const express = require('express')
 const passport = require('passport')
 const Strategy = require('passport-google-oauth20').Strategy
 // const functions = require('firebase-functions')
-// const firebaseAdmin = require('firebase-admin')
+const firebaseAdmin = require('firebase-admin')
 const firebase = require('firebase')
 const multer = require('multer')
 const path = require('path')
@@ -95,6 +95,17 @@ app.use(require('express-session')({ secret: 'keyboard cat', resave: true, saveU
 // Initialize Passport and restore authentication state, if any, from the session.
 app.use(passport.initialize())
 app.use(passport.session())
+
+
+
+
+
+const serviceAccount = require("./serviceAccountKey.json");
+
+firebaseAdmin.initializeApp({
+  credential: firebaseAdmin.credential.cert(serviceAccount),
+  databaseURL: "https://martinbanks-sandbox.firebaseio.com"
+});
 
 
 // Define routes.
@@ -238,6 +249,42 @@ app.get('/upload',
     res.render('upload')
   }
 )
+const { Storage } = require('@google-cloud/storage')
+
+function saveToFirstore (req) {
+  const file = req.files[0]
+  console.log({ file })
+  const storage = new Storage({
+    projectId: process.env.GCLOUD_PROJECT_ID,
+    keyFilename: process.env.GCLOUD_APPLICATION_CREDENTIALS,
+  })
+  const bucket = storage.bucket(process.env.GCLOUD_STORAGE_BUCKET_URL)
+  const blob = bucket.file(`uploads/${file.originalname}`)
+  const blobStream = blob.createWriteStream({
+    metadata: {
+      contentType: file.mimetype,
+    },
+  })
+
+  blobStream.on('error', err => {
+    throw err
+  })
+  blobStream.on('finish', () => {
+    const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURI(blob.name)}?alt=media`
+    const altUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`
+    console.log('\n\n', publicUrl, '\n\n', altUrl, '\n\n')
+
+    blob.getSignedUrl({
+      action: 'read',
+      expires: '03-09-2491'
+    }).then(signedUrls => {
+      console.log({ signedUrls })
+      // signedUrls[0] contains the file's public URL
+    });
+  })
+
+  blobStream.end(req.files[0].buffer)
+}
 
 function saveUploadedFile (file) {
   const uploadDir = path.join(__dirname, `./uploads`)
@@ -272,6 +319,7 @@ function saveUploadedFile (file) {
   })
 }
 
+
 app.post('/upload',
   // The string in brackets is the name of the file input element
   upload.array('fileupload'),
@@ -279,6 +327,11 @@ app.post('/upload',
   // checkAuthorisedUser,
   async function (req, res, next) {
     try {
+      try {
+        saveToFirstore(req)
+      } catch (err) {
+        console.log('\n\nERROR UPLOADING FILE\n', err, '\n\n')
+      }
       await saveUploadedFile(req.files[0])
     } catch (err) {
       res.send(err)
